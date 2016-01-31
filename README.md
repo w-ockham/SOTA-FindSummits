@@ -1,5 +1,6 @@
 # SOTA-FindSummits
 Search SOTA summits candidate from the elevation map provided from Geospatial Information Authority of Japan
+
 Usage:
  1. Extract XML files download from MLIT Database.
  2. Concatnate XML files with xml2txt.py
