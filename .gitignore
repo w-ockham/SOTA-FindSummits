@@ -26,3 +26,8 @@
 *.exe
 *.out
 *.app
+
+# Emacs backup files
+*~
+# Work directories
+work/
