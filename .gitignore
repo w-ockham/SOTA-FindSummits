@@ -29,6 +29,7 @@
 
 # Emacs backup files
 *~
+#*#
 # Work directories
 work/
 obj/
