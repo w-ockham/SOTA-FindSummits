@@ -85,60 +85,109 @@ void tolatlong(char *latitude, char *longitude, unsigned int loc,float *data) {
 
 }
 
-void outputTreeSub(std::ofstream & out, int depth, ctBranch * b, float * data, 
+void outputTreeSub(std::ofstream & out, ctBranch * b, float * data, 
 		   int thresh ) {
   int xp,yp,xc,yc;
   double plong,plat,clong,clat;
   char labuff[128],lobuff[128];
 
-  if (((data[b->extremum]-data[b->saddle]) > thresh) && (data[b->extremum]>thresh)) {
+  if (((data[b->extremum]-data[b->saddle]) > thresh) && 
+      (data[b->extremum] > thresh)) {
     tolatlong(labuff,lobuff,b->extremum,data);
     out <<
-      "var m_latlng"+to_string(depth)+" = new google.maps.LatLng("+labuff+","+lobuff+");\n"+
-      "var marker"+to_string(depth)+" = new google.maps.Marker({\n"+
-      "  position: m_latlng"+to_string(depth)+",\n"+
-      "  title:\""+to_string(data[b->extremum])+","+
-                   to_string(data[b->saddle])+","+
-                   to_string(data[b->extremum]-data[b->saddle])+"\",\n"+
-      "  map: map\n"+
-      "});\n";
-    
+      "data_peak.push({\n"
+      "lat: ";
+    out << labuff;
+    out << ",\n"
+      "lng: ";
+    out << lobuff;
+    out <<",\n";
+    out << 
+      "content:'Peak = " + to_string(data[b->extremum]) +
+      " from Saddle =" + to_string(data[b->saddle])+
+      " Diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+      "'\n});\n";
+
+    tolatlong(labuff,lobuff,b->saddle,data);
+    out <<
+      "data_saddle.push({\n"
+      "lat: ";
+    out << labuff;
+    out << ",\n"
+           "lng: ";
+    out << lobuff;
+    out <<",\n";
+    out << 
+      "content:'Saddle = " + to_string(data[b->saddle]) +
+      " from Peak =" + to_string(data[b->extremum])+
+      " Diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+      "'\n});\n";
+
     for ( ctBranch * c = b->children.head; c != NULL; c = c->nextChild ){
-      if (((data[c->extremum]-data[c->saddle]) > thresh) && (data[c->extremum]>thresh)) { 
-	  //abs(int(data[c->extremum])-int(data[c->saddle])) > thresh ) {
-	depth++;
-	outputTreeSub( out, depth, c, data, thresh );
+      if (((data[c->extremum]-data[c->saddle]) > thresh) &&
+	  (data[c->extremum]>thresh)) { 
+	outputTreeSub( out, c, data, thresh );
       }
     }
   }
-} 
+}
 
 void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
 
-  char labuff[128],lobuff[128];
-  sprintf(lobuff,"%.20le",lc_long[0][0]);
-  sprintf(labuff,"%.20le",uc_lat[0][0]);
-
   out << 
-    "function initialize() {\n";
+    "function map_canvas() {\n"
+    " var data_peak = new Array();\n"
+    " var data_saddle = new Array();\n"
+    " var polylines = new Array();\n";
+
+  outputTreeSub(out, b, data, thresh); 
+
   out <<
-    "var latlng = new google.maps.LatLng(";
-  out << labuff;
-  out << ",";
-  out << lobuff;
-  out << +");\n";
-  out <<
-    "var opts = {\n";
-  out <<
+    "var latlng = new google.maps.LatLng(data_peak[0].lat, data_peak[0].lng);\n"
+    "var opts = {\n"
     "  zoom: 13,\n"
-    "  center: latlng,"
-    "   mapTypeId: google.maps.MapTypeId.TERRAIN\n"
+    "  center: latlng,\n"
+    "  mapTypeId: google.maps.MapTypeId.TERRAIN\n"
     "};\n"
-    "var map = new google.maps.Map(document.getElementById(\"map_canvas\"), opts);"<< endl;
-
-  outputTreeSub(out, 0, b, data, thresh); 
-
-  out << "}\n";
+    "var map = new google.maps.Map(document.getElementById(\"map\"), opts);\n"
+    "var markers_peak = new Array();\n"
+    "var markers_saddle = new Array();\n"
+    "for (i = 0; i < data_peak.length; i++) {\n"
+    "    markers_peak[i] = new google.maps.Marker({\n"
+    "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
+    "        map: map\n"
+    "    });\n"
+    "    markerInfo(markers_peak[i], data_peak[i].content);\n"
+    "}\n"
+    "for (i = 0; i < data_saddle.length; i++) {\n"
+    "    markers_saddle[i] = new google.maps.Marker({\n"
+    "        position: new google.maps.LatLng(data_saddle[i].lat, data_saddle[i].lng),\n"
+    "        opacity: 0.2,\n"
+    "        map: map\n"
+    "    });\n"
+    "    markerInfo(markers_saddle[i], data_saddle[i].content);\n"
+    "}\n"
+    "for (i = 0; i < data_peak.length; i++) {\n"
+    "polylines[i] = new google.maps.Polyline({\n"
+    "   map: map,\n"
+    "	strokeColor:\"#00007f\",\n"
+    "    strokeOpacity:0.7,\n"
+    "	strokeWeight:2,\n"
+    "    path: [\n"
+    "	    new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
+    "	    new google.maps.LatLng(data_saddle[i].lat, data_saddle[i].lng)\n"
+    "	    ]\n"
+    "});\n"
+    "};\n"
+    "}\n"
+    "function markerInfo(marker, name) {\n"
+    "google.maps.event.addListener(marker, 'click', function (event) {\n"
+    "   new google.maps.InfoWindow({\n"
+    "        content: name\n"
+    "    }).open(marker.getMap(), marker);\n"
+    "});\n"
+    "}\n"
+    "google.maps.event.addDomListener(window, 'load', map_canvas);\n";
 }
 
 void loadMap (const char * filename, float **pixels)
