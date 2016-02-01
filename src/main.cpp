@@ -1,8 +1,9 @@
 #include <iostream>
 #include <fstream>
+#include <set>
 #include <unistd.h>
 #include <string.h>
-
+#include <math.h>
 extern "C" 
 {
 #include <tourtre.h>
@@ -27,6 +28,87 @@ double lc_long[XMLWIDTH][XMLHEIGHT];
 unsigned int xml_width,xml_height;
 unsigned int mesh_width,mesh_height;
 unsigned int width,height;
+
+#define DELTA 0.0004
+#define dless(x,y) (x<y)
+#define dequal(x,y) (fabs(y - x)<=DELTA)
+
+class Summit {
+public:
+  Summit() { this->name = "";}
+  Summit(std::string name,double lat, double lng) {
+    this->name = name; this->lat = lat; this->lng = lng;
+  }
+  bool operator < (const Summit&left) const {
+    return dless(this->lng,left.lng);
+  }
+  string name;
+  double lat;
+  double lng;
+};
+
+std::multiset<Summit> summit_list;
+
+vector<string> split( string &src, string key){
+    vector<string> v;
+    string str = src;
+
+    int index = 0;
+    while(index < (int)str.length()){
+        int oldindex = index;
+        index = str.find( key, index);
+        if(index != string::npos){
+            string item = str.substr(oldindex, index - oldindex);
+            v.push_back(item);
+        }else{
+            string item = str.substr(oldindex);
+            v.push_back(item);
+            break;
+        }
+        index += key.length();
+    }
+    return v;
+}
+
+void readSummitlist(const char *filename) {
+  std::ifstream ifs(filename);
+  string str;
+  vector<string> vec;
+  double lat,lng;
+
+  if (ifs.fail()) {
+    cerr << "ERR: Couldn't open " << filename << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  while(getline(ifs,str)) {
+    vec = split(str, ",");
+    if(vec.size() > 7) {
+      sscanf(vec[7].data(),"%lf",&lng);
+      sscanf(vec[6].data(),"%lf",&lat);
+      str = vec[3]+"("+vec[0]+")";
+      //      cout << "Read " << str << " " << lat << "," << lng << endl;
+      summit_list.insert(Summit(str,lng,lat));
+    }
+  }
+}
+      
+
+bool isCertifed(char *name, double plat, double plong) {
+  std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-DELTA));
+  if(iter != summit_list.end()) {
+    do {
+      if(dequal(plat,iter->lat)&&dequal(plong,iter->lng)) {
+	strcpy(name,iter->name.data());
+	cout << "Found " << name << " " << plat <<"," << plong <<endl;
+	return true;
+      }
+      iter++;
+    } while (iter != summit_list.end());
+  }
+  return false;
+}
+
 
 double value ( size_t v, void * d ) {
     Mesh * mesh = reinterpret_cast<Mesh*>(d);
@@ -59,7 +141,8 @@ size_t neighbors6 ( size_t v, size_t * nbrs, void * d ) {
     return nbrsBuf.size();
 }
 
-void tolatlong(char *latitude, char *longitude, unsigned int loc,float *data) {
+
+bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2, unsigned int loc,float *data) {
   int x,y,px,py,dx,dy;
   double plong,plat;
 
@@ -78,22 +161,29 @@ void tolatlong(char *latitude, char *longitude, unsigned int loc,float *data) {
   plat =  uc_lat[px][py] -
     ((uc_lat[px][py] - lc_lat[px][py])*((double)dy/(double)mesh_height));
 
-  sprintf(longitude,"%.20le",plong);
-  sprintf(latitude,"%.20le",plat);
-  //  printf("loc=%d, x=%d y=%d px=%d py=%d dx = %d dy = %d ",loc,x,y,px,py,dx,dy);
-  //  printf("lat=%s long=%s height = %d\n",latitude,longitude,data[loc]);
+  sprintf(longitude,"%.10le",plong);
+  sprintf(latitude,"%.10le",plat);
+  sprintf(lng2,"%3.4f",plong);
+  sprintf(lat2,"%2.4f",plat);
 
+  if(name)
+    return isCertifed(name, plat, plong);
+  else 
+    return false;
 }
 
 void outputTreeSub(std::ofstream & out, ctBranch * b, float * data, 
 		   int thresh ) {
   int xp,yp,xc,yc;
   double plong,plat,clong,clat;
+  char namebuff[128];
   char labuff[128],lobuff[128];
+  char labuff2[128],lobuff2[128];
+  bool flag;
 
   if (((data[b->extremum]-data[b->saddle]) > thresh) && 
       (data[b->extremum] > thresh)) {
-    tolatlong(labuff,lobuff,b->extremum,data);
+    flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data);
     out <<
       "data_peak.push({\n"
       "lat: ";
@@ -102,13 +192,23 @@ void outputTreeSub(std::ofstream & out, ctBranch * b, float * data,
       "lng: ";
     out << lobuff;
     out <<",\n";
-    out << 
-      "content:'Peak = " + to_string(data[b->extremum]) +
-      " from Saddle =" + to_string(data[b->saddle])+
-      " Diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-      "'\n});\n";
+    if (flag) {
+      out <<"cert : true,\n";
+      out << 
+	"content:'Name = " << namebuff <<
+	" peak = " + to_string(data[b->extremum]) +
+	" pos = "+labuff2 +","+lobuff2+
+	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	"'\n});\n";
+    } else {
+      out <<"cert : false,\n"<<
+	"content:' Peak = " + to_string(data[b->extremum]) +
+	" pos = "+labuff2 +","+lobuff2+
+	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	"'\n});\n";
+    }
 
-    tolatlong(labuff,lobuff,b->saddle,data);
+    tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data);
     out <<
       "data_saddle.push({\n"
       "lat: ";
@@ -119,8 +219,8 @@ void outputTreeSub(std::ofstream & out, ctBranch * b, float * data,
     out <<",\n";
     out << 
       "content:'Saddle = " + to_string(data[b->saddle]) +
-      " from Peak =" + to_string(data[b->extremum])+
-      " Diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+      " pos = "+labuff2 +","+lobuff2+
+      " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
       "'\n});\n";
 
     for ( ctBranch * c = b->children.head; c != NULL; c = c->nextChild ){
@@ -153,10 +253,16 @@ void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
     "var markers_peak = new Array();\n"
     "var markers_saddle = new Array();\n"
     "for (i = 0; i < data_peak.length; i++) {\n"
+    "  if(data_peak[i].cert) {\n"
+    "    markers_peak[i] = new google.maps.Marker({\n"
+    "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
+    "        icon : 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',\n"
+    "        map: map\n"
+    "    });} else {\n"
     "    markers_peak[i] = new google.maps.Marker({\n"
     "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
     "        map: map\n"
-    "    });\n"
+    "    });}\n"
     "    markerInfo(markers_peak[i], data_peak[i].content);\n"
     "}\n"
     "for (i = 0; i < data_saddle.length; i++) {\n"
@@ -193,10 +299,19 @@ void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
 void loadMap (const char * filename, float **pixels)
 {
   std::ifstream ifs(filename);
-  std::string str;
-
+  std::ifstream ifsb;
+  std::string bfilename(filename), str;
+  
   if (ifs.fail()) {
     cerr << "ERR: Couldn't open " << filename << endl;
+    exit(EXIT_FAILURE);
+  }
+  
+  bfilename += ".bin";
+  ifsb.open(bfilename, ios::in | ios::binary);
+
+  if (ifsb.fail()) {
+    cerr << "ERR: Couldn't open " + bfilename << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -215,12 +330,10 @@ void loadMap (const char * filename, float **pixels)
       sscanf(str.data(),"%lf %lf",&lc_lat[w][h],&lc_long[w][h]);
       getline(ifs,str);
       sscanf(str.data(),"%lf %lf",&uc_lat[w][h],&uc_long[w][h]);
-      //      printf("file(%d,%d) = (%.20le , %.20le) - (%.20le , %.20le)\n",
-      //     w,h,lc_lat[w][h],lc_long[w][h],uc_lat[w][h],uc_long[w][h]);
     }
 
   int numPixels = width * height;
-  printf("Processing %d * %d = %d meshes\n",width, height, numPixels);
+  cout << "Reading " << width << " * " << height << " = " << numPixels << " meshes\n";
 
   *pixels = new float[numPixels];
   
@@ -229,13 +342,12 @@ void loadMap (const char * filename, float **pixels)
     exit(EXIT_FAILURE);
   }
 
-  float minVal = 8000.0, maxVal = 0;
+  float minVal = 10000.0, maxVal = 0;
   float b;
 
   for (int i = 0; i < numPixels; i++) {
-    getline(ifs,str);
-    if(!ifs.fail()) {
-      b = std::stof(str);
+    ifsb.read((char *)&b,sizeof(float));
+    if(!ifsb.fail()) {
       (*pixels)[i] = b;
       minVal = std::min(b,minVal);
       maxVal = std::max(b,maxVal);
@@ -245,8 +357,7 @@ void loadMap (const char * filename, float **pixels)
     }
   }
 
-  cout << "min value is " << minVal << " and max is " << maxVal << endl;
-
+  cout << "Min elevation is " << minVal << " and Max elevation is " << maxVal << endl;
 }
 
 int main( int argc, char ** argv ) 
@@ -257,7 +368,7 @@ int main( int argc, char ** argv )
     //command line parameters
     char filename[1024] = "";
     char outfile[1024] = "";
-    char switches[256] = "i:o:xp:";
+    char switches[256] = "i:o:s:xp:";
     bool use48 = false;
     int thresh = 149;
 
@@ -268,6 +379,9 @@ int main( int argc, char ** argv )
           break;
         case 'o': 
           strcpy(outfile,optarg);
+          break;
+        case 's': 
+	  readSummitlist(optarg);
           break;
         case 'x': 
           use48 = true;
@@ -282,10 +396,10 @@ int main( int argc, char ** argv )
             
     if ( errflg || filename[0] == '\0') {
       clog << "usage: " << argv[0] << " <flags> " << endl << endl;
-      
       clog << "flags" << endl;
-      clog << "\t -i < filename >  :  filename" << endl;
-      clog << "\t -o < filename >  :  filename" << endl;
+      clog << "\t -i < filename >  :  elevation data" << endl;
+      clog << "\t -o < filename >  :  javascript filename" << endl;
+      clog << "\t -s < filename >  :  summits list" << endl;
       clog << "\t -p < threshold > : pruning threshold" << endl;
       clog << "\t -x : use 4/8/checkerboard connectivity" << endl;
       clog << "\t\tdefault is 6 connectivity" << endl;
