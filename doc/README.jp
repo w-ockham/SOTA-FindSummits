@@ -1,27 +1,81 @@
-ãƒ»ã“ã®ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã«ã¤ã„ã¦
-ã€€ã“ã®ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã¯å›½åœŸåœ°ç†é™¢ã‹ã‚‰æä¾›ã•ã‚Œã‚‹åŸºç›¤åœ°å›³æƒ…å ±æ•°å€¤æ¨™é«˜ãƒ¢ãƒ‡ãƒ«ã‹ã‚‰
-ã€€UCDavisã‹ã‚‰æä¾›ã•ã‚Œã‚‹libtourtreã‚’ç”¨ã„ã¦é ˜åŸŸæœ¨ï¼ˆContour Tree)ã‚’ç”Ÿæˆã—ã¾ã™ã€‚
-ã€€ContourTreeã¯æ›²é¢ã®æ§‹é€ ã‚’ã‚°ãƒ©ãƒ•ã¨ã—ã¦è¡¨ç¾ã—ãŸã‚‚ã®ã§ã€æœ¬ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã§ã¯
-ã€€æ•°å€¤æ¨™é«˜ãƒ¢ãƒ‡ãƒ«ã®é«˜åº¦ã‚’å¤‰åŒ–ã•ã›ãŸæ™‚ã«å‡ºç¾ãƒ»æ¶ˆæ»…ã™ã‚‹é ‚ç‚¹ã€ã‚µãƒ‰ãƒ«ï¼ˆéžç‚¹ï¼‰
-ã€€ã‚’libtoutreã‚’ç”¨ã„ã¦ã‚°ãƒ©ãƒ•åŒ–ã—ã¦ã„ã¾ã™ã€‚
-ã€€æœ¬ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã§ã¯åˆ†æžçµæžœã‚’GoogleMapã‚’è¡¨ç¤ºã™ã‚‹JavaScriptã¨ã—ã¦å‡ºåŠ›ã—ã¾ã™ã€‚
+E‚±‚ÌƒvƒƒOƒ‰ƒ€‚É‚Â‚¢‚Ä
+@‚±‚ÌƒvƒƒOƒ‰ƒ€‚Í‘“y’n—‰@‚©‚ç’ñ‹Ÿ‚³‚ê‚éŠî”Õ’n}î•ñ”’l•W‚ƒ‚ƒfƒ‹‚©‚ç
+@UCDavis‚©‚ç’ñ‹Ÿ‚³‚ê‚élibtourtre‚ð—p‚¢‚Ä—Ìˆæ–ØiContour Tree)‚ð¶¬‚µ‚Ü‚·B
+@ContourTree‚Í‹È–Ê‚Ì\‘¢‚ðƒOƒ‰ƒt‚Æ‚µ‚Ä•\Œ»‚µ‚½‚à‚Ì‚ÅA–{ƒvƒƒOƒ‰ƒ€‚Å‚Í
+@”’l•W‚ƒ‚ƒfƒ‹‚Ì‚“x‚ð•Ï‰»‚³‚¹‚½Žž‚ÉoŒ»EÁ–Å‚·‚é’¸“_AƒTƒhƒ‹iˆÆ“_j
+@‚ðlibtoutre‚ð—p‚¢‚ÄƒOƒ‰ƒt‰»‚µ‚»‚ÌŒ‹‰Ê‚ðGoogleMap‚ð•\Ž¦‚·‚é
+@JavaScript‚Æ‚µ‚Äo—Í‚µ‚Ü‚·B
 
-ã€€GoogleMapã§ã¯é ‚ç‚¹ã¨éžç‚¹ã®é«˜åº¦å·®ãŒæ‰€å®šã®å€¤ä»¥ä¸Šã‚ã‚‹ã‚‚ã®ãŒè¡¨ç¤ºã•ã‚Œã€
-ã€€é ‚ç‚¹ã¯èµ¤ã‚‚ã—ãã¯é’ã®ãƒžãƒ¼ã‚«ã€éžç‚¹ã¯åŠé€æ˜Žã®ãƒžãƒ¼ã‚«ã¨ã—ã¦è¡¨ç¤ºã•ã‚Œã¾ã™ã€‚
-ã€€ã¾ãŸé ‚ç‚¹ã¨å¯¾å¿œã™ã‚‹éžç‚¹ã¯é’ã®ãƒ©ã‚¤ãƒ³ã§æŽ¥ç¶šã•ã‚Œã¦ã„ã¾ã™ã€‚
-ã€€å„ãƒžãƒ¼ã‚«ã«ã¯æ¨™é«˜ã¨ä½ç½®åŠã³é ‚ç‚¹ã¨éžç‚¹ã®é«˜åº¦å·®ãŒä»˜ã‘ã‚‰ã‚Œã¦ãŠã‚Šãƒžãƒ¼ã‚«ã‚’
-ã€€ã‚¯ãƒªãƒƒã‚¯ã™ã‚‹ã“ã¨ã§è¡¨ç¤ºã•ã‚Œã¾ã™ã€‚
-ã€€ã¾ãŸé’ã®ãƒžãƒ¼ã‚«ã¯SOTAã®SummitListã«è©²å½“ã™ã‚‹å±±å²³ãŒç™»éŒ²ã•ã‚Œã¦ã„ã‚‹ã‚‚ã®ã§
-ã€€SummitListã‹ã‚‰æ¤œç´¢ã—ãŸå±±å²³åãŒæ¨™é«˜ãƒ»ä½ç½®ã«åŠ ãˆã¦è¡¨ç¤ºã•ã‚Œã¾ã™
-ã€€èµ¤ã„ãƒžãƒ¼ã‚«ã¯SummitListã‹ã‚‰æŒ‡å®šã•ã‚ŒãŸç·¯åº¦ãƒ»çµŒåº¦ä»˜è¿‘ã«è©²å½“ã™ã‚‹å±±å²³ãŒ
-ã€€ãªã„å ´åˆã«ä»˜ã‘ã‚‰ã‚Œã¾ã™ã€‚
+EŽ–‘O€”õ
+@(1)ƒtƒ@ƒCƒ‹‚Ìƒ_ƒEƒ“ƒ[ƒh
+@@–{ƒtƒ@ƒCƒ‹‚ÆAlibtourtre‚ðˆÈ‰º‚ÌƒŠƒ“ƒN‚©‚çƒ_ƒEƒ“ƒ[ƒh‚µ‚Ü‚·B(Download ZIP‚ðƒNƒŠƒbƒN)
+@@https://github.com/sedillard/libtourtre@@
+    https://github.com/w-ockham/SOTA-FindSummits
+  (2)ƒtƒ@ƒCƒ‹‚Ì“WŠJ‚ÆƒRƒ“ƒpƒCƒ‹
+  @unzip SOTAFindSummits-master.zip
+    cd SOTAFindSummits-master
+    unzip ../libtourtre-master.zip
+    mv libtoutre-master libtourtre
+    cd libtourtre
+    make (g++‚ÅƒGƒ‰[‚É‚È‚éê‡‚ÍƒRƒ“ƒpƒCƒ‹ƒIƒvƒVƒ‡ƒ“‚Ì-Werror‚ðŠO‚·j
+    cd ..
+    mkdir obj
+    make
 
-ãƒ»äº‹å‰æº–å‚™
-ã€€
+EŽg‚¢•û
+  (1) Ž–‘O€”õ
+  @-Ž–€ŠÂ‹«‚Ì®”õ
+    cd example
+    ln -s ../findsummits .
+    ln -s ../libtourtre .
+    ln -s ../xml2txt.py
+  @
+  @‚±‚±‚ÅƒTƒ“ƒvƒ‹‚ÌŽÀsŒ‹‰Ê‚ðŠm”F‚µ‚½‚¢•û‚Ímap.html(1280x1024)‚à‚µ‚­‚Ílarge-map.html(2480x1920)
+    ‚ðŠJ‚­‚Æ_“ÞìEŽR—œE“Œ‹ž‹ßx‚Ì115km x 75km (10 x 10 =100ŒÂ‚ÌXMLƒtƒ@ƒCƒ‹‚ðŽg‚¢‚Ü‚·j‚Ì—Ìˆæ
+    ‚ÅŽÀs‚µ‚½Œ‹‰Ê‚ð•\Ž¦‚µ‚Ü‚·B
+  
+@(2) XMLƒtƒ@ƒCƒ‹‚Ì€”õ
+@@‘“y’n—‰@‚ÌƒTƒCƒg‚æ‚è‰ðÍ‚µ‚½‚¢—Ìˆæ‚ÌƒGƒŠƒA‚ÌXMLƒtƒ@ƒCƒ‹‚ð‘I‚ñ‚Åƒ_ƒEƒ“ƒ[ƒh‚µ‚Ä‚­‚¾‚³‚¢B
+@@XMLƒtƒ@ƒCƒ‹‚ðƒ_ƒEƒ“ƒ[ƒh‚·‚éÛ‚É‚Í’n}‚©‚çŠY“–‚·‚é—Ìˆæ‚ð‘I‘ð‚·‚é‚Ì‚ª‚í‚©‚è‚â‚·‚¢‚ÆŽv‚¢‚Ü‚·B
+@@‚È‚¨A–{ƒvƒƒOƒ‰ƒ€‚Í‹éŒ`‚Ì—Ìˆæ‚µ‚©ƒTƒ|[ƒg‚µ‚Ä‚¨‚è‚Ü‚¹‚ñB
+@@‚µ‚½‚ª‚Á‚ÄŠCŠÝü•t‹ß‚È‚Çƒf[ƒ^‚ªŒ‡‚¯‚Ä‚¢‚é—Ìˆæ‚ðŠÜ‚ß‚Äƒtƒ@ƒCƒ‹‚ðŒ‹‡‚·‚é‚±‚Æ‚Í‚Å‚«‚Ü‚¹‚ñB
+@@ƒtƒ@ƒCƒ‹‚Í‚·‚×‚Äunzip‚µ‚ÄƒeƒLƒXƒgƒtƒ@ƒCƒ‹iŠg’£Žq‚ª.xml)‚Æ‚µ‚Ä‚­‚¾‚³‚¢B
+@@ƒtƒ@ƒCƒ‹‚Ì“WŠJæ‚Íexample‚Ì‰º‚É‚È‚è‚Ü‚·B
 
-ãƒ»ä½¿ã„æ–¹
-ã€€(1) XMLãƒ•ã‚¡ã‚¤ãƒ«ã®æº–å‚™
-ã€€ã€€ã€€å›½åœŸåœ°ç†é™¢ã®ã‚µã‚¤ãƒˆã‚ˆã‚Šã€
+@(3) XMLƒtƒ@ƒCƒ‹‚ÌŒ‹‡
+@@xml2txt.py‚Åƒtƒ@ƒCƒ‹‚ðŒ‹‡‚µ‚Ü‚·B
+@@ipython‚ÌƒCƒ“ƒ^ƒvƒŠƒ^‚ð‚¨Ž‚¿‚Å‚È‚¢•û‚ÍŽ–‘O‚ÉƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚­‚¾‚³‚¢Bj
+@@xml2txt.py‚Ìˆø”‚ÍˆÈ‰º‚Ì’Ê‚è‚Å‚·B
+@@@‘æ1ˆø”F—Ìˆæ‚Ìˆê”Ô–k¼i¶ãj‚Ì—Ìˆæ–¼‚ð1ŽŸƒƒbƒVƒ…”Ô†-2ŽŸƒƒbƒVƒ…”Ô†‚ÌŒ`Ž®‚ÅŽw’è‚µ‚Ü‚·B
+@@@‘æ2ˆø”F—Ìˆæ‚Ì•i“Œ¼•ûŒü‚É‚¢‚­‚Â‚ÌXMLƒtƒ@ƒCƒ‹‚ª‚ ‚é‚©j‚ð”Žš‚ÅŽw’è‚µ‚Ü‚·B
+@@@‘æ3ˆø”F—Ìˆæ‚Ì‚‚³i“ì–k•ûŒü‚É‚¢‚­‚Â‚ÌXMLƒtƒ@ƒCƒ‹‚ª‚ ‚é‚©j‚ð”Žš‚ÅŽw’è‚µ‚Ü‚·B
+@@@‘æ4ˆø”Fo—Íƒtƒ@ƒCƒ‹–¼‚ðŽw’è‚µ‚Ü‚·B
+@@
+@@@—áF ./xml2txt.py 5338-02 10 10 sample
+         ¶ã‚Ì—Ìˆæ‚ª5338-02‚©‚ç‚Í‚¶‚Ü‚é10 x 10‚Ì‹éŒ`—Ìˆæ‚ðŒ‹‡‚·‚éB
+	 o—Í‚Æ‚µ‚ÄŽŸ‚Ì2‚Â‚Ìƒtƒ@ƒCƒ‹‚ª¶¬‚³‚ê‚Ü‚·B
+	 @sample : —ÌˆæƒTƒCƒY‚ÆŠe—Ìˆæ‚ÌˆÜ“xEŒo“x‚ª“ü‚Á‚½ƒtƒ@ƒCƒ‹
+	 @sample.binF•W‚ƒf[ƒ^‚ðƒoƒCƒiƒŠ‰»‚µ‚½ƒtƒ@ƒCƒ‹
 
+@(4) ‰ðÍ‚ÌŽÀs
+@@@findsummits‚Å‰ðÍ‚ðŽÀs‚µ‚Ü‚·BƒIƒvƒVƒ‡ƒ“‚ÍˆÈ‰º‚Ì’Ê‚è‚Å‚·B
+@@@-i <filename> : “ü—Íƒtƒ@ƒCƒ‹‚ðŽw’è‚µ‚Ü‚·Bixml2txt‚Å¶¬‚µ‚½ƒtƒ@ƒCƒ‹)
+      -o <filename> : ¶¬‚·‚éJavaScript‚Ìƒtƒ@ƒCƒ‹–¼ (’Êí‚Ícode.js‚Æ‚µ‚Ä‚­‚¾‚³‚¢j
+      -s <filename> : sota.org.uk‚©‚çƒ_ƒEƒ“ƒ[ƒh‚µ‚½SummitList‚ðŽw’è‚µ‚Ü‚·B
+      -p <number>   : ’¸“_‚©‚çˆÆ“_‚Ì‚µ‚«‚¢’l‚ðŽw’è‚µ‚Ü‚·BSOTA-JA‚Ìê‡‚Í150 (m)‚Å‚·B
+      
+      —áF ./findsummits -i sample -o code.js -s summitsJA.csv -p 150
+      @o—Í‚Æ‚µ‚ÄGoogleMap‚ð•\Ž¦‚·‚écode.js‚ª¶¬‚³‚ê‚Ü‚·B‚±‚Ìƒtƒ@ƒCƒ‹‚Ímap.html‚©‚çŽQÆ‚³‚ê‚Ü‚·B
+      
+@(5) ‰ðÍŒ‹‰Ê‚Ì•\Ž¦
+@@@FirefoxAChrome“™‚Ìƒuƒ‰ƒEƒU‚Åmap.html (‘å‚«‚¢ƒfƒBƒXƒvƒŒƒC‚ð‚¨Ž‚¿‚Ì•û‚Ílarge-map.html)
+      ‚ðŠJ‚¢‚Ä‚­‚¾‚³‚¢BHTMLƒtƒ@ƒCƒ‹‚©‚çæ‚Ù‚Ç‚Ìcode.js‚ð“Ç‚Ýž‚ÝGoogle Mapã‚É‰ðÍŒ‹‰Ê‚ð•\Ž¦‚µ‚Ü‚·B
+
+@@@GoogleMap‚Å‚Í’¸“_‚ÆˆÆ“_‚Ì‚“x·‚ªŠ’è‚Ì’lˆÈã‚ ‚é‚à‚Ì‚ª•\Ž¦‚³‚êA’¸“_‚ÍÔ‚à‚µ‚­‚ÍÂ‚Ìƒ}[ƒJ
+@@@ˆÆ“_‚Í”¼“§–¾‚Ìƒ}[ƒJ‚Æ‚µ‚Ä•\Ž¦‚³‚ê‚Ü‚·B‚Ü‚½’¸“_‚Æ‘Î‰ž‚·‚éˆÆ“_‚ÍÂ‚Ìƒ‰ƒCƒ“‚ÅÚ‘±‚³‚ê‚Ä‚¢‚Ü‚·B
+@@@Šeƒ}[ƒJ‚É‚Í•W‚‚ÆˆÊ’u‹y‚Ñ’¸“_‚ÆˆÆ“_‚Ì‚“x·‚ª•t‚¯‚ç‚ê‚Ä‚¨‚èƒ}[ƒJ‚ðƒNƒŠƒbƒN‚·‚é‚±‚Æ‚Å•\Ž¦‚³‚ê‚Ü‚·B
+@@@‚Ü‚½Â‚Ìƒ}[ƒJ‚ÍSOTA‚ÌSummitList‚ÉŠY“–‚·‚éŽRŠx‚ª“o˜^‚³‚ê‚Ä‚¢‚é‚à‚Ì‚ÅASummitList‚©‚çŒŸõ‚µ‚½
+@@@ŽRŠx–¼‚ª•W‚EˆÊ’u‚É‰Á‚¦‚Ä•\Ž¦‚³‚ê‚Ü‚·B
+@@@Ô‚¢ƒ}[ƒJ‚ÍSummitList‚©‚çŽw’è‚³‚ê‚½ˆÜ“xEŒo“x•t‹ß‚ÉŠY“–‚·‚éŽRŠx‚ª‚È‚¢ê‡‚É•t‚¯‚ç‚ê‚Ü‚·B
 
 
