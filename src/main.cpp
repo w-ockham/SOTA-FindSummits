@@ -24,12 +24,13 @@ double uc_lat[XMLWIDTH][XMLHEIGHT];
 double uc_long[XMLWIDTH][XMLHEIGHT];
 double lc_lat[XMLWIDTH][XMLHEIGHT];
 double lc_long[XMLWIDTH][XMLHEIGHT];
+double se_lat,se_lng;
 
 unsigned int xml_width,xml_height;
 unsigned int mesh_width,mesh_height;
 unsigned int width,height;
 
-#define DELTA 0.0004
+#define DELTA 0.001
 #define dless(x,y) (x<y)
 #define dequal(x,y) (fabs(y - x)<=DELTA)
 
@@ -96,6 +97,7 @@ void readSummitlist(const char *filename) {
 
 bool isCertifed(char *name, double plat, double plong) {
   std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-DELTA));
+  std::set<Summit>::iterator iter_end = summit_list.upper_bound(Summit("",0,plong+DELTA));
   if(iter != summit_list.end()) {
     do {
       if(dequal(plat,iter->lat)&&dequal(plong,iter->lng)) {
@@ -149,6 +151,7 @@ bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2
   x = loc % width;
   y = loc / width;
 
+#if 0
   px = x / mesh_width;
   py = y / mesh_height;
 
@@ -160,6 +163,12 @@ bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2
     ((uc_long[px][py] - lc_long[px][py])*((double)dx /(double)mesh_width));
   plat =  uc_lat[px][py] -
     ((uc_lat[px][py] - lc_lat[px][py])*((double)dy/(double)mesh_height));
+#else
+  plong = lc_long[0][0] +  
+    ((uc_long[0][0] - lc_long[0][0])*((double)x /(double)mesh_width));
+  plat =  uc_lat[0][0] -
+    ((uc_lat[0][0] - lc_lat[0][0])*((double)y/(double)mesh_height));
+#endif
 
   sprintf(longitude,"%.10le",plong);
   sprintf(latitude,"%.10le",plat);
@@ -284,6 +293,19 @@ void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
     "	    new google.maps.LatLng(data_saddle[i].lat, data_saddle[i].lng)\n"
     "	    ]\n"
     "});\n"
+    "region_rect = new google.maps.Rectangle({\n"
+    "   map: map,\n"
+    "	strokeColor:\"#00007f\",\n"
+    "   strokeOpacity:1.0,\n"
+    "	strokeWeight:8,\n"
+    "   fillColor: '000000',\n"
+    "   fillOpacity: 0,\n"
+    "    bounds: {\n"
+    "       north:" << uc_lat[0][0] << ",\n" <<
+    "       south:" << se_lat << ",\n" <<
+    "       east:" << se_lng << ",\n" <<
+    "       west:" << lc_long[0][0] << "}" <<
+    "});\n"
     "};\n"
     "}\n"
     "function markerInfo(marker, name) {\n"
@@ -316,6 +338,8 @@ void loadMap (const char * filename, float **pixels)
   }
 
   getline(ifs,str);
+  cout << "North West region = " << str <<endl;
+  getline(ifs,str);
   sscanf(str.data(),"%d %d",&xml_width,&xml_height);
 
   getline(ifs,str);
@@ -331,6 +355,9 @@ void loadMap (const char * filename, float **pixels)
       getline(ifs,str);
       sscanf(str.data(),"%lf %lf",&uc_lat[w][h],&uc_long[w][h]);
     }
+
+  se_lat = uc_lat[0][0] - (uc_lat[0][0]- lc_lat[0][0])*(double)xml_height;
+  se_lng = lc_long[0][0] + (uc_long[0][0]- lc_long[0][0])*(double)xml_width;
 
   int numPixels = width * height;
   cout << "Reading " << width << " * " << height << " = " << numPixels << " meshes\n";
