@@ -29,21 +29,25 @@ double se_lat,se_lng;
 unsigned int xml_width,xml_height;
 unsigned int mesh_width,mesh_height;
 unsigned int width,height;
+int unknownCount;
+string region_name;
 
-#define DELTA 0.001
 #define dless(x,y) (x<y)
-#define dequal(x,y) (fabs(y - x)<=DELTA)
+#define dequal(x,y,delta) (fabs(y - x)<=delta)
 
 class Summit {
 public:
   Summit() { this->name = "";}
   Summit(std::string name,double lat, double lng) {
     this->name = name; this->lat = lat; this->lng = lng;
+    missing = true;
   }
   bool operator < (const Summit&left) const {
     return dless(this->lng,left.lng);
   }
   string name;
+  mutable bool missing;
+  double elevation;
   double lat;
   double lng;
 };
@@ -95,18 +99,18 @@ void readSummitlist(const char *filename) {
 }
       
 
-bool isCertifed(char *name, double plat, double plong) {
-  std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-DELTA));
-  std::set<Summit>::iterator iter_end = summit_list.upper_bound(Summit("",0,plong+DELTA));
+bool isCertifed(char *name, double plat, double plong,double delta = 0.001) {
+  std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-delta));
   if(iter != summit_list.end()) {
     do {
-      if(dequal(plat,iter->lat)&&dequal(plong,iter->lng)) {
+      if(dequal(plat,iter->lat,delta)&&dequal(plong,iter->lng,delta)) {
 	strcpy(name,iter->name.data());
 	cout << "Found " << name << " " << plat <<"," << plong <<endl;
+	iter->missing = false;
 	return true;
       }
       iter++;
-    } while (iter != summit_list.end());
+    } while (((iter->lng - plong) < delta)&& iter != summit_list.end());
   }
   return false;
 }
@@ -144,113 +148,190 @@ size_t neighbors6 ( size_t v, size_t * nbrs, void * d ) {
 }
 
 
-bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2, unsigned int loc,float *data) {
-  int x,y,px,py,dx,dy;
+bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2, unsigned int loc,float *data,bool &border,double delta = 0.001) {
+  int x,y;
   double plong,plat;
 
   x = loc % width;
   y = loc / width;
+  //  cout << loc << "," << x << "," << y << endl;
 
-#if 0
-  px = x / mesh_width;
-  py = y / mesh_height;
+  if(x == 0||x ==(width-1)||(y ==0)||(y ==(height-1)))
+    border = true;
+  else 
+    border = false;
 
-  dx = x % mesh_width;
-  dy = y % mesh_height;
-
-
-  plong = lc_long[px][py] +  
-    ((uc_long[px][py] - lc_long[px][py])*((double)dx /(double)mesh_width));
-  plat =  uc_lat[px][py] -
-    ((uc_lat[px][py] - lc_lat[px][py])*((double)dy/(double)mesh_height));
-#else
   plong = lc_long[0][0] +  
     ((uc_long[0][0] - lc_long[0][0])*((double)x /(double)mesh_width));
   plat =  uc_lat[0][0] -
     ((uc_lat[0][0] - lc_lat[0][0])*((double)y/(double)mesh_height));
-#endif
 
   sprintf(longitude,"%.10le",plong);
   sprintf(latitude,"%.10le",plat);
-  sprintf(lng2,"%3.4f",plong);
-  sprintf(lat2,"%2.4f",plat);
+  sprintf(lng2,"%3.7f",plong);
+  sprintf(lat2,"%2.8f",plat);
 
   if(name)
-    return isCertifed(name, plat, plong);
+    return isCertifed(name, plat, plong, delta);
   else 
     return false;
 }
 
-void outputTreeSub(std::ofstream & out, ctBranch * b, float * data, 
-		   int thresh ) {
+void outputTreeSub(std::ofstream & out, std::ofstream & tout, 
+		   ctBranch * b, float * data, 
+		   int thresh ) 
+{
   int xp,yp,xc,yc;
   double plong,plat,clong,clat;
   char namebuff[128];
   char labuff[128],lobuff[128];
   char labuff2[128],lobuff2[128];
-  bool flag;
+  bool flag,border;
 
   if (((data[b->extremum]-data[b->saddle]) > thresh) && 
       (data[b->extremum] > thresh)) {
-    flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data);
-    out <<
-      "data_peak.push({\n"
-      "lat: ";
-    out << labuff;
-    out << ",\n"
-      "lng: ";
-    out << lobuff;
-    out <<",\n";
-    if (flag) {
-      out <<"cert : true,\n";
-      out << 
-	"content:'Name = " << namebuff <<
-	" peak = " + to_string(data[b->extremum]) +
-	" pos = "+labuff2 +","+lobuff2+
-	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	"'\n});\n";
-    } else {
-      out <<"cert : false,\n"<<
-	"content:' Peak = " + to_string(data[b->extremum]) +
-	" pos = "+labuff2 +","+lobuff2+
-	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	"'\n});\n";
-    }
-
-    tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data);
-    out <<
-      "data_saddle.push({\n"
-      "lat: ";
-    out << labuff;
-    out << ",\n"
-           "lng: ";
-    out << lobuff;
-    out <<",\n";
-    out << 
-      "content:'Saddle = " + to_string(data[b->saddle]) +
-      " pos = "+labuff2 +","+lobuff2+
-      " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-      "'\n});\n";
-
-    for ( ctBranch * c = b->children.head; c != NULL; c = c->nextChild ){
-      if (((data[c->extremum]-data[c->saddle]) > thresh) &&
-	  (data[c->extremum]>thresh)) { 
-	outputTreeSub( out, c, data, thresh );
+    flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data,border);
+    if(!border) {
+      //plain text
+      // lat, lng, elevation, flag, lat(txt), lng(txt),diff from saddle, name
+      tout << labuff << ", " << lobuff << ", ";
+      tout << to_string(data[b->extremum]) << ", ";
+      if(flag) tout << "1, ";
+      else tout << "0, ";
+      tout << labuff2 << ", " << lobuff2 << ", ";
+      tout << to_string(data[b->extremum]-data[b->saddle]) << ", ";
+      if(flag) tout << namebuff << ", ";
+      else {
+	tout << "U-"+region_name+"-"+to_string(unknownCount);
+	tout << " ,";
       }
+      //javascript
+      out <<
+	"data_peak.push({\n"
+	"lat: ";
+      out << labuff;
+      out << ",\n"
+	"lng: ";
+      out << lobuff;
+      out <<",\n";
+      if (flag) {
+	out <<"cert : true,\n";
+	out <<"missing : false,\n";
+	out << 
+	  "content:'Name = " << namebuff <<
+	  " Peak = " + to_string(data[b->extremum]) +
+	  " pos = "+labuff2 +","+lobuff2+
+	  " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	  "'\n});\n";
+      } else {
+	out <<"cert : false,\n" <<
+	  "missing : false,\n";
+	out <<"content:'Name = U-" <<region_name+"-"+to_string(unknownCount++);
+	out << " Peak = " + to_string(data[b->extremum]) +
+	  " pos = "+labuff2 +","+lobuff2+
+	  " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	  "'\n});\n";
+      }
+
+      tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data,border);
+      
+      //plain text
+      // lat(sadlle), lng(saddle), elevation(saddle), lat, lng, diff from peak
+      tout << labuff << ", " << lobuff << ", ";
+      tout << to_string(data[b->saddle]) << ",";
+      tout << labuff2 << ", " << lobuff2 << ", ";
+      tout << to_string(data[b->extremum]-data[b->saddle]) <<endl;
+      
+      //javascript
+      out <<
+	"data_saddle.push({\n"
+	"lat: ";
+      out << labuff;
+      out << ",\n"
+	"lng: ";
+      out << lobuff;
+      out <<",\n";
+      out << 
+	"content:'Saddle = " + to_string(data[b->saddle]) +
+	" pos = "+labuff2 +","+lobuff2+
+	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	"'\n});\n";
     }
-  }
+  } else
+    if (((data[b->extremum]-data[b->saddle]) > (thresh/20) && 
+    	 (data[b->extremum] > (thresh/20))))
+      {  // missing summit
+	flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data,border,0.001);
+	if((!border)&&flag) {
+	  tout << labuff << ", " << lobuff << ", ";
+	  tout << to_string(data[b->extremum]) << ", ";
+	  tout << "1, ";
+	  tout << labuff2 << ", " << lobuff2 << ", ";
+	  tout << to_string(data[b->extremum]-data[b->saddle]) << ", ";
+	  tout << namebuff << " (Missing) , ";
+	  //javascript
+	  out <<
+	    "data_peak.push({\n"
+	    "lat: ";
+	  out << labuff;
+	  out << ",\n"
+	    "lng: ";
+	  out << lobuff;
+	  out <<",\n";
+	  out <<"cert : true,\n";
+	  out <<"missing : true,\n";
+	  out << 
+	    "content:'Name = " << namebuff << "(Missing)" <<
+	    " Peak = " + to_string(data[b->extremum]) +
+	    " pos = "+labuff2 +","+lobuff2+
+	    " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	    "'\n});\n";
+	  
+	  tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data,border);
+	  //plain text
+	  // lat(sadlle), lng(saddle), elevation(saddle), lat, lng, diff from peak
+	  tout << labuff << ", " << lobuff << ", ";
+	  tout << to_string(data[b->saddle]) << ",";
+	  tout << labuff2 << ", " << lobuff2 << ", ";
+	  tout << to_string(data[b->extremum]-data[b->saddle]) <<endl;
+	  //javascript
+	  out <<
+	    "data_saddle.push({\n"
+	    "lat: ";
+	  out << labuff;
+	  out << ",\n"
+	    "lng: ";
+	  out << lobuff;
+	  out <<",\n";
+	  out << 
+	    "content:'Saddle = " + to_string(data[b->saddle]) +
+	    " pos = "+labuff2 +","+lobuff2+
+	    " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
+	    "'\n});\n";
+	}
+      }
+  for ( ctBranch * c = b->children.head; c != NULL; c = c->nextChild )
+      outputTreeSub( out, tout, c, data, thresh );
 }
 
-void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
+void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float * data, int thresh ) {
 
+  //Analyzed area
+  tout << uc_lat[0][0] << ", " 
+       <<    se_lat << ", " 
+       << se_lng << ", " 
+       << lc_long[0][0] << endl;
+
+  // javascipt main
   out << 
     "function map_canvas() {\n"
     " var data_peak = new Array();\n"
     " var data_saddle = new Array();\n"
     " var polylines = new Array();\n";
 
-  outputTreeSub(out, b, data, thresh); 
+  outputTreeSub(out, tout, b, data, thresh); 
 
+  // javascript body
   out <<
     "var latlng = new google.maps.LatLng(data_peak[0].lat, data_peak[0].lng);\n"
     "var opts = {\n"
@@ -263,11 +344,17 @@ void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
     "var markers_saddle = new Array();\n"
     "for (i = 0; i < data_peak.length; i++) {\n"
     "  if(data_peak[i].cert) {\n"
+    "   if(data_peak[i].missing) {\n"
+    "    markers_peak[i] = new google.maps.Marker({\n"
+    "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
+    "        icon : 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',\n"
+    "        map: map});\n"
+    "   } else {\n"
     "    markers_peak[i] = new google.maps.Marker({\n"
     "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
     "        icon : 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',\n"
     "        map: map\n"
-    "    });} else {\n"
+    "    });}} else {\n"
     "    markers_peak[i] = new google.maps.Marker({\n"
     "        position: new google.maps.LatLng(data_peak[i].lat, data_peak[i].lng),\n"
     "        map: map\n"
@@ -318,72 +405,83 @@ void outputTree( std::ofstream & out, ctBranch * b, float * data, int thresh ) {
     "google.maps.event.addDomListener(window, 'load', map_canvas);\n";
 }
 
-void loadMap (const char * filename, float **pixels)
+#define MAXWIDTH 16
+void loadMap (int start, int area_width, int area_height, unsigned int &width, unsigned int &height,float **pixels)
 {
-  std::ifstream ifs(filename);
-  std::ifstream ifsb;
-  std::string bfilename(filename), str;
-  
+  std::ifstream ifs;
+  std::ifstream ifsb[MAXWIDTH];
+  std::string str,pname,bname[MAXWIDTH];
+
+  pname = std::to_string(start) + ".pos";
+  ifs.open(pname);
   if (ifs.fail()) {
-    cerr << "ERR: Couldn't open " << filename << endl;
+    cerr << "ERR: Couldn't open " << pname << endl;
     exit(EXIT_FAILURE);
   }
-  
-  bfilename += ".bin";
-  ifsb.open(bfilename, ios::in | ios::binary);
-
-  if (ifsb.fail()) {
-    cerr << "ERR: Couldn't open " + bfilename << endl;
-    exit(EXIT_FAILURE);
-  }
-
   getline(ifs,str);
   cout << "North West region = " << str <<endl;
   getline(ifs,str);
   sscanf(str.data(),"%d %d",&xml_width,&xml_height);
-
   getline(ifs,str);
   sscanf(str.data(),"%d %d",&mesh_width,&mesh_height);
+  getline(ifs,str);
+  sscanf(str.data(),"%lf %lf",&lc_lat[0][0],&lc_long[0][0]);
+  getline(ifs,str);
+  sscanf(str.data(),"%lf %lf",&uc_lat[0][0],&uc_long[0][0]);
+  se_lat = uc_lat[0][0] - 
+    (uc_lat[0][0]- lc_lat[0][0])*(double)xml_height*area_height;
+  se_lng = lc_long[0][0] + 
+    (uc_long[0][0]- lc_long[0][0])*(double)xml_width*area_width;
 
-  width = xml_width * mesh_width;
-  height = xml_height * mesh_height;
+  width = xml_width * mesh_width * area_width;
+  height = xml_height * mesh_height * area_height;
 
-  for(int h = 0; h < xml_height; h++) 
-    for(int w = 0; w < xml_width; w++) {
-      getline(ifs,str);
-      sscanf(str.data(),"%lf %lf",&lc_lat[w][h],&lc_long[w][h]);
-      getline(ifs,str);
-      sscanf(str.data(),"%lf %lf",&uc_lat[w][h],&uc_long[w][h]);
-    }
-
-  se_lat = uc_lat[0][0] - (uc_lat[0][0]- lc_lat[0][0])*(double)xml_height;
-  se_lng = lc_long[0][0] + (uc_long[0][0]- lc_long[0][0])*(double)xml_width;
+  cout << xml_width << "," << mesh_width << "," << area_width << endl;
+  cout << xml_height << "," << mesh_height << "," << area_height << endl;
 
   int numPixels = width * height;
-  cout << "Reading " << width << " * " << height << " = " << numPixels << " meshes\n";
+  cout << "Reading " << width << " * " << height << 
+    " = " << numPixels << " meshes\n";
 
   *pixels = new float[numPixels];
-  
   if (!pixels) {
     cerr << "ERR: Couldn't allocate enough memory" << endl;
     exit(EXIT_FAILURE);
   }
 
-  float minVal = 10000.0, maxVal = 0;
+  float minVal =9000, maxVal = 0;
   float b;
+  unsigned int count = 0;
 
-  for (int i = 0; i < numPixels; i++) {
-    ifsb.read((char *)&b,sizeof(float));
-    if(!ifsb.fail()) {
-      (*pixels)[i] = b;
-      minVal = std::min(b,minVal);
-      maxVal = std::max(b,maxVal);
-    } else {
-      cerr << "ERR: Couldn't read " << filename << endl;
-      exit(EXIT_FAILURE);
+  for(int h = 0; h < area_height ; h++ ) {
+    for(int w = 0; w < area_width ; w++ ) {
+      bname[w] = std::to_string(start - 100*h + w) + ".bin";
+      cout << "Reading ..." << bname[w] << endl;
+      ifsb[w].open(bname[w], ios::in | ios::binary);
+      if (ifsb[w].fail()) {
+	cerr << "ERR: Couldn't open " + bname[w] << endl;
+	exit(EXIT_FAILURE);
+      }
     }
+    for(int y = 0; y < mesh_height*xml_height; y++)  {
+      for(int w = 0; w < area_width; w++) {
+	for(int i = 0; i < mesh_width*xml_width; i++) {
+	  ifsb[w].read((char *)&b,sizeof(float));
+	  if(!ifsb[w].fail()) {
+	    if (b<0) b =0.0;
+	    (*pixels)[count++] = b;
+	    minVal = std::min(b,minVal);
+	    maxVal = std::max(b,maxVal);
+	  } else {
+	    cerr << "ERR: Couldn't read " << bname[w] << endl;
+	    exit(EXIT_FAILURE);
+	  }
+	}
+      }
+    }
+    for(int w = 0; w < area_width ; w++ ) 
+      ifsb[w].close();
   }
-
   cout << "Min elevation is " << minVal << " and Max elevation is " << maxVal << endl;
 }
 
@@ -393,21 +491,24 @@ int main( int argc, char ** argv )
     int c;
     
     //command line parameters
-    char filename[1024] = "";
-    char outfile[1024] = "";
-    char switches[256] = "i:o:s:xp:";
+    string filename;
+    int area_width, area_height;
+    char switches[256] = "i:h:w:o:l:xp:";
     bool use48 = false;
-    int thresh = 149;
+    int thresh = 150;
 
     while ( ( c = getopt( argc, argv, switches ) ) != EOF ) {
       switch ( c ) {
         case 'i': 
-          strcpy(filename,optarg);
+          filename = optarg;
           break;
-        case 'o': 
-          strcpy(outfile,optarg);
+        case 'w': 
+	  area_width = atoi(optarg);
           break;
-        case 's': 
+        case 'h': 
+	  area_height = atoi(optarg);
+          break;
+        case 'l': 
 	  readSummitlist(optarg);
           break;
         case 'x': 
@@ -434,9 +535,13 @@ int main( int argc, char ** argv )
       exit(EXIT_FAILURE);
     }
 
+    unknownCount = 0;
+    region_name = filename;
+
     //Load data
     float * data;
-    loadMap( filename, &data);
+    loadMap(std::stoi(filename),area_width, area_height, width, height, &data);
+    //    cout << "size = " << width << "," << height<<endl;
 
     //Create mesh
     Mesh mesh(data ,width, height);
@@ -463,11 +568,11 @@ int main( int argc, char ** argv )
     ct_cleanup( ctx );
     
     //output tree
-    std::ofstream out(outfile,std::ios::out);
-    if (out) {
-      outputTree( out, root, data, thresh);
+    std::ofstream jout(filename + ".js",std::ios::out);
+    std::ofstream tout(filename + ".txt",std::ios::out);
+    if (jout) {
+      outputTree( jout, tout , root, data, thresh);
     } else {
-            cerr << "ERR: couldn't open output file " << outfile << endl;
+      cerr << "ERR: couldn't open output file " << filename << ".js" << endl;
     }
-	
 }
