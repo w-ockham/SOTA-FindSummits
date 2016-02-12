@@ -38,9 +38,10 @@ string region_name;
 class Summit {
 public:
   Summit() { this->name = "";}
-  Summit(std::string name,double lat, double lng) {
+  Summit(std::string name,double lat, double lng,std::string csv) {
     this->name = name; this->lat = lat; this->lng = lng;
     missing = true;
+    csvtxt = csv;
   }
   bool operator < (const Summit&left) const {
     return dless(this->lng,left.lng);
@@ -50,6 +51,7 @@ public:
   double elevation;
   double lat;
   double lng;
+  string csvtxt;
 };
 
 std::multiset<Summit> summit_list;
@@ -77,7 +79,7 @@ vector<string> split( string &src, string key){
 
 void readSummitlist(const char *filename) {
   std::ifstream ifs(filename);
-  string str;
+  string str,name;
   vector<string> vec;
   double lat,lng;
 
@@ -91,23 +93,26 @@ void readSummitlist(const char *filename) {
     if(vec.size() > 7) {
       sscanf(vec[7].data(),"%lf",&lng);
       sscanf(vec[6].data(),"%lf",&lat);
-      str = vec[3]+"("+vec[0]+")";
-      //      cout << "Read " << str << " " << lat << "," << lng << endl;
-      summit_list.insert(Summit(str,lng,lat));
+      name = vec[3]+"("+vec[0]+")";
+      summit_list.insert(Summit(name,lng,lat,str));
     }
   }
 }
       
 
-bool isCertifed(char *name, double plat, double plong,double delta = 0.001) {
-  std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-delta));
+bool isCertified(char *name,char *csv, double plat, double plong,double delta) {
+  std::set<Summit>::iterator iter = summit_list.lower_bound(Summit("",0,plong-delta,""));
   if(iter != summit_list.end()) {
     do {
       if(dequal(plat,iter->lat,delta)&&dequal(plong,iter->lng,delta)) {
 	strcpy(name,iter->name.data());
+	strcpy(csv,iter->csvtxt.data());
 	cout << "Found " << name << " " << plat <<"," << plong <<endl;
-	iter->missing = false;
-	return true;
+	if(iter->missing) {
+	  iter->missing = false;
+	  return true;
+	} else
+	  return false;
       }
       iter++;
     } while (((iter->lng - plong) < delta)&& iter != summit_list.end());
@@ -147,8 +152,8 @@ size_t neighbors6 ( size_t v, size_t * nbrs, void * d ) {
     return nbrsBuf.size();
 }
 
-
-bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2, unsigned int loc,float *data,bool &border,double delta = 0.001) {
+bool tolatlong(char *name,char *csv,char *latitude, char *longitude, 
+	       unsigned int loc,float *data,bool &border,double delta=0.001) {
   int x,y;
   double plong,plat;
 
@@ -166,13 +171,11 @@ bool tolatlong(char *name,char *latitude, char *longitude,char *lat2, char *lng2
   plat =  uc_lat[0][0] -
     ((uc_lat[0][0] - lc_lat[0][0])*((double)y/(double)mesh_height));
 
-  sprintf(longitude,"%.10le",plong);
-  sprintf(latitude,"%.10le",plat);
-  sprintf(lng2,"%3.7f",plong);
-  sprintf(lat2,"%2.8f",plat);
+  sprintf(longitude,"%3.7f",plong);
+  sprintf(latitude,"%2.8f",plat);
 
   if(name)
-    return isCertifed(name, plat, plong, delta);
+    return isCertified(name, csv, plat, plong, delta);
   else 
     return false;
 }
@@ -185,25 +188,23 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
   double plong,plat,clong,clat;
   char namebuff[128];
   char labuff[128],lobuff[128];
-  char labuff2[128],lobuff2[128];
+  char hbuff[128],dbuff[128],csvbuff[256];
   bool flag,border;
 
   if (((data[b->extremum]-data[b->saddle]) > thresh) && 
       (data[b->extremum] > thresh)) {
-    flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data,border);
+    flag =  tolatlong(namebuff,csvbuff,labuff,lobuff,b->extremum,data,border);
+    sprintf(hbuff,"%4.1f",data[b->extremum]);
+    sprintf(dbuff,"%4.1f",data[b->extremum]-data[b->saddle]);
+    if(!flag) strcpy(namebuff,
+		     ("U-"+region_name+"-"+to_string(unknownCount)).data());
     if(!border) {
-      //plain text
-      // lat, lng, elevation, flag, lat(txt), lng(txt),diff from saddle, name
-      tout << labuff << ", " << lobuff << ", ";
-      tout << to_string(data[b->extremum]) << ", ";
-      if(flag) tout << "1, ";
-      else tout << "0, ";
-      tout << labuff2 << ", " << lobuff2 << ", ";
-      tout << to_string(data[b->extremum]-data[b->saddle]) << ", ";
-      if(flag) tout << namebuff << ", ";
+      if (flag) tout << csvbuff << endl;
       else {
-	tout << "U-"+region_name+"-"+to_string(unknownCount);
-	tout << " ,";
+	tout << namebuff << ",";
+	tout << "Japan -,," << namebuff << ",";
+	tout << hbuff << "," << dbuff << "," <<lobuff << ","<< labuff << ",";
+	tout << lobuff << "," << labuff << "," << labuff << ",,,,,,," <<endl;
       }
       //javascript
       out <<
@@ -217,31 +218,23 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
       if (flag) {
 	out <<"cert : true,\n";
 	out <<"missing : false,\n";
-	out << 
-	  "content:'Name = " << namebuff <<
-	  " Peak = " + to_string(data[b->extremum]) +
-	  " pos = "+labuff2 +","+lobuff2+
-	  " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	  "'\n});\n";
       } else {
 	out <<"cert : false,\n" <<
 	  "missing : false,\n";
-	out <<"content:'Name = U-" <<region_name+"-"+to_string(unknownCount++);
-	out << " Peak = " + to_string(data[b->extremum]) +
-	  " pos = "+labuff2 +","+lobuff2+
-	  " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	  "'\n});\n";
+	unknownCount++;
       }
+      out << 
+	"content:'" << namebuff << "(" << hbuff << "m) "<<
+	labuff << "," << lobuff << "["<< dbuff << "m]'\n});\n";
 
-      tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data,border);
-      
-      //plain text
-      // lat(sadlle), lng(saddle), elevation(saddle), lat, lng, diff from peak
-      tout << labuff << ", " << lobuff << ", ";
-      tout << to_string(data[b->saddle]) << ",";
-      tout << labuff2 << ", " << lobuff2 << ", ";
-      tout << to_string(data[b->extremum]-data[b->saddle]) <<endl;
-      
+      tolatlong(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
+      sprintf(hbuff,"%.1f",data[b->saddle]);
+      sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
+      tout << "Saddle-" << namebuff << ",";
+      tout << "Japan -,,Saddle-" << namebuff << ",";
+      tout << hbuff <<  "," << dbuff << "," << lobuff << "," << labuff << ",";
+      tout << lobuff << "," << labuff << "," << labuff <<  ",,,,,,," <<endl;
+
       //javascript
       out <<
 	"data_saddle.push({\n"
@@ -252,23 +245,20 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
       out << lobuff;
       out <<",\n";
       out << 
-	"content:'Saddle = " + to_string(data[b->saddle]) +
-	" pos = "+labuff2 +","+lobuff2+
-	" diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	"'\n});\n";
+	"content:'Saddle[" << hbuff << "m] " <<
+	" " << labuff << "," << lobuff <<
+	" [" << dbuff << "m]'\n});\n";
     }
   } else
     if (((data[b->extremum]-data[b->saddle]) > (thresh/20) && 
     	 (data[b->extremum] > (thresh/20))))
       {  // missing summit
-	flag =  tolatlong(namebuff,labuff,lobuff,labuff2,lobuff2,b->extremum,data,border,0.001);
+	flag =  tolatlong(namebuff,csvbuff,labuff,lobuff,
+			  b->extremum,data,border);
+	sprintf(hbuff,"%.1f",data[b->extremum]);
+	sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
 	if((!border)&&flag) {
-	  tout << labuff << ", " << lobuff << ", ";
-	  tout << to_string(data[b->extremum]) << ", ";
-	  tout << "1, ";
-	  tout << labuff2 << ", " << lobuff2 << ", ";
-	  tout << to_string(data[b->extremum]-data[b->saddle]) << ", ";
-	  tout << namebuff << " (Missing) , ";
+	  tout << "(Missing)"<< csvbuff << endl;
 	  //javascript
 	  out <<
 	    "data_peak.push({\n"
@@ -281,19 +271,17 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 	  out <<"cert : true,\n";
 	  out <<"missing : true,\n";
 	  out << 
-	    "content:'Name = " << namebuff << "(Missing)" <<
-	    " Peak = " + to_string(data[b->extremum]) +
-	    " pos = "+labuff2 +","+lobuff2+
-	    " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	    "'\n});\n";
-	  
-	  tolatlong(NULL,labuff,lobuff,labuff2,lobuff2,b->saddle,data,border);
-	  //plain text
-	  // lat(sadlle), lng(saddle), elevation(saddle), lat, lng, diff from peak
-	  tout << labuff << ", " << lobuff << ", ";
-	  tout << to_string(data[b->saddle]) << ",";
-	  tout << labuff2 << ", " << lobuff2 << ", ";
-	  tout << to_string(data[b->extremum]-data[b->saddle]) <<endl;
+	    "content:'(Missing)" << namebuff << "(" << hbuff << "m) "<<
+	    labuff << "," << lobuff << "[" << dbuff << "m]'\n});\n";
+
+	  tolatlong(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
+	  sprintf(hbuff,"%.1f",data[b->saddle]);
+	  sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
+	  tout << "Saddle-" << namebuff << ",";
+	  tout << "Japan -,,Saddle-" << namebuff << ",";
+	  tout << hbuff << "," << dbuff << "," << lobuff << "," << labuff << ",";
+	  tout << lobuff << "," << labuff << "," <<  labuff << ",,,,,,," <<endl;
+
 	  //javascript
 	  out <<
 	    "data_saddle.push({\n"
@@ -304,14 +292,13 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 	  out << lobuff;
 	  out <<",\n";
 	  out << 
-	    "content:'Saddle = " + to_string(data[b->saddle]) +
-	    " pos = "+labuff2 +","+lobuff2+
-	    " diff = "+ to_string(data[b->extremum]-data[b->saddle])+
-	    "'\n});\n";
+	    "content:'Saddle(" << hbuff  << "m) " <<
+	    " " << labuff << "," <<lobuff<<
+	    " ["<< dbuff<< "m]'\n});\n";
 	}
       }
   for ( ctBranch * c = b->children.head; c != NULL; c = c->nextChild )
-      outputTreeSub( out, tout, c, data, thresh );
+    outputTreeSub( out, tout, c, data, thresh );
 }
 
 void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float * data, int thresh ) {
@@ -339,8 +326,8 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "  center: latlng,\n"
     "  mapTypeId: google.maps.MapTypeId.TERRAIN\n"
     "};\n"
-    "var map = new google.maps.Map(document.getElementById(\"map\"), opts);\n"
-    "var markers_peak = new Array();\n"
+    "map = new google.maps.Map(document.getElementById(\"map\"), opts);\n"
+    "markers_peak = new Array();\n"
     "var markers_saddle = new Array();\n"
     "for (i = 0; i < data_peak.length; i++) {\n"
     "  if(data_peak[i].cert) {\n"
@@ -370,6 +357,17 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "    markerInfo(markers_saddle[i], data_saddle[i].content);\n"
     "}\n"
     "for (i = 0; i < data_peak.length; i++) {\n"
+    "var option= document.createElement('option');\n"
+    "if(data_peak[i].cert) {\n"
+    "  if(data_peak[i].missing)\n"
+    "    option.style.color = 'darkyellow';\n"
+    "   else\n"
+    "   option.style.color = 'blue';\n"
+    "} else\n"
+    "	option.style.color = 'red';\n"
+    "option.setAttribute('value', i);\n"
+    "option.innerHTML = data_peak[i].content;\n"
+    "select.appendChild(option);\n"
     "polylines[i] = new google.maps.Polyline({\n"
     "   map: map,\n"
     "	strokeColor:\"#00007f\",\n"
@@ -395,6 +393,9 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "});\n"
     "};\n"
     "}\n"
+    "function selectSummit(value){\n"
+    "map.panTo(markers_peak[value].position);\n"
+    "};\n"
     "function markerInfo(marker, name) {\n"
     "google.maps.event.addListener(marker, 'click', function (event) {\n"
     "   new google.maps.InfoWindow({\n"
@@ -569,7 +570,7 @@ int main( int argc, char ** argv )
     
     //output tree
     std::ofstream jout(filename + ".js",std::ios::out);
-    std::ofstream tout(filename + ".txt",std::ios::out);
+    std::ofstream tout(filename + ".csv",std::ios::out);
     if (jout) {
       outputTree( jout, tout , root, data, thresh);
     } else {

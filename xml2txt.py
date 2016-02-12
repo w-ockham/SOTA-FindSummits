@@ -57,8 +57,9 @@ def xml2txt(ofname,primary_code,secondary_code,xml_width,xml_height):
 
     for y in range(xml_height):
         elementList = []
+        startPoint = []
         for x in range(xml_width):
-            print "reading " + region_name[y * xml_width+ x]
+            print "Reading " + region_name[y * xml_width+ x]
             if region_name[y * xml_width+ x] == "NULL":
                 elementList.append([])
             else:
@@ -79,23 +80,45 @@ def xml2txt(ofname,primary_code,secondary_code,xml_width,xml_height):
                 outf.write("{} {}\n".format((xml_lat_l+1)/1.5-1/12.0-(y*1/12.0),xml_lng_l+100+(x*1/8.0)))
                 #upper corner
                 outf.write("{} {}\n".format((xml_lat_l+1)/1.5-y*1/12.0,xml_lng_l+100+1/8.0+(x*1/8.0)))
+            
+            if len(elem):
+                sp = elem.find(".//{http://www.opengis.net/gml/3.2}startPoint").text.split()
+                startPoint.append((int(sp[0]),int(sp[1])))
+            else:
+                startPoint.append((0,0))
+
+        print startPoint
 
         tupleList = []
 
         for x in range(xml_width):
             elem = elementList[x]
+            (spw,sph) = startPoint[x]
+            startp = spw + sph * mesh_width
             if len(elem):
                 e = elem.find(".//{http://www.opengis.net/gml/3.2}tupleList")
                 b = []
-                l = e.text.split("\n")
-                print region_name[y * xml_width+ x] + " has " + str(len(l)) + " nodes"
-                for i in l:
-                    if i != "" and i.find(',') >= 0:
-                        try:
-                            (m,z) = i.split(",")
-                            b.append(float(z))
-                        except:
-                            print "Error [{}]\n".format(i)
+                line = e.text.split("\n")
+                print region_name[y * xml_width+ x] + " has " + str(len(line)) + " nodes"
+                c = 0
+                fl = True
+                while c < (mesh_width * mesh_height):
+                    if c < startp:
+                        b.append(float(0.0))
+                        c +=1
+                    elif fl:
+                        for i in line:
+                            if i != "" and i.find(',') >= 0:
+                                try:
+                                    (m,z) = i.split(",")
+                                    b.append(float(z))
+                                    c += 1
+                                except:
+                                    print "Error [{}]\n".format(i)
+                        fl = False
+                    else:
+                        b.append(float(0.0))
+                        c += 1
                 tupleList.append(b)
             else:
                 print "Null region"
