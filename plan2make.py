@@ -76,9 +76,9 @@ outf.write("all : ")
 for l in lf:
     t = l.split()
     outf.write("{} ".format(t[0]+".csv"))
-    if not os.path.exists("{}".format(t[0]+".pos")):
-        print "File not found:" + t[0]
-        missing = True
+#    if not os.path.exists("{}".format(t[0]+"-*.pos")):
+#        print "File not found:" + t[0]
+#        missing = True
 
 if missing:
   sys.exit(1)
@@ -103,7 +103,7 @@ java.write(javacode_head)
 
 for l in lf:
     t = l.split()
-    outf.write("{} : {}\n".format(t[0]+".csv",t[0]+".bin"))
+    outf.write("{} : {}\n".format(t[0]+".csv",t[0]+"-0.bin"))
     outf.write(command.format(t[0],t[1],t[2]))
     outf.write("\n")
 

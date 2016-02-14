@@ -20,11 +20,11 @@ using std::clog;
 using std::cerr;
 using std::endl;
 
-double uc_lat[XMLWIDTH][XMLHEIGHT];
-double uc_long[XMLWIDTH][XMLHEIGHT];
-double lc_lat[XMLWIDTH][XMLHEIGHT];
-double lc_long[XMLWIDTH][XMLHEIGHT];
+double uc_lat,uc_lng;
+double lc_lat,lc_lng;
 double se_lat,se_lng;
+double org_lat,org_lng;
+double orgse_lat,orgse_lng;
 
 unsigned int xml_width,xml_height;
 unsigned int mesh_width,mesh_height;
@@ -35,13 +35,25 @@ string region_name;
 #define dless(x,y) (x<y)
 #define dequal(x,y,delta) (fabs(y - x)<=delta)
 
+
+string string_trim(const string& str, const char* delim="\r\n");
+string string_trim(const string& str, const char* delim)
+{
+  const int p1(str.find_first_not_of(delim));
+  if(p1 == string::npos){
+    return string();
+  }
+  const int p2(str.find_last_not_of(delim));
+  return str.substr(p1, p2 - p1 + 1);
+}
+
 class Summit {
 public:
   Summit() { this->name = "";}
   Summit(std::string name,double lat, double lng,std::string csv) {
     this->name = name; this->lat = lat; this->lng = lng;
     missing = true;
-    csvtxt = csv;
+    csvtxt = string_trim(csv);
   }
   bool operator < (const Summit&left) const {
     return dless(this->lng,left.lng);
@@ -107,7 +119,7 @@ bool isCertified(char *name,char *csv, double plat, double plong,double delta) {
       if(dequal(plat,iter->lat,delta)&&dequal(plong,iter->lng,delta)) {
 	strcpy(name,iter->name.data());
 	strcpy(csv,iter->csvtxt.data());
-	cout << "Found " << name << " " << plat <<"," << plong <<endl;
+	//	cout << "Found " << name << " " << plat <<"," << plong <<endl;
 	if(iter->missing) {
 	  iter->missing = false;
 	  return true;
@@ -152,32 +164,62 @@ size_t neighbors6 ( size_t v, size_t * nbrs, void * d ) {
     return nbrsBuf.size();
 }
 
-bool tolatlong(char *name,char *csv,char *latitude, char *longitude, 
-	       unsigned int loc,float *data,bool &border,double delta=0.001) {
+bool tolatlng(char *name,char *csv,char *latitude, char *longitude, 
+	      unsigned int loc,float *data,bool &border,double delta=0.001) {
   int x,y;
-  double plong,plat;
+  double plng,plat;
 
   x = loc % width;
   y = loc / width;
   //  cout << loc << "," << x << "," << y << endl;
 
-  if(x == 0||x ==(width-1)||(y ==0)||(y ==(height-1)))
-    border = true;
-  else 
-    border = false;
 
-  plong = lc_long[0][0] +  
-    ((uc_long[0][0] - lc_long[0][0])*((double)x /(double)mesh_width));
-  plat =  uc_lat[0][0] -
-    ((uc_lat[0][0] - lc_lat[0][0])*((double)y/(double)mesh_height));
+  plng = org_lng +  
+    ((uc_lng - lc_lng)*((double)x /(double)mesh_width));
+  plat =  org_lat -
+    ((uc_lat - lc_lat)*((double)y/(double)mesh_height));
 
-  sprintf(longitude,"%3.7f",plong);
+  sprintf(longitude,"%3.7f",plng);
   sprintf(latitude,"%2.8f",plat);
 
+  if(plng >= lc_lng && plng <= se_lng && plat >= se_lat && plat <= uc_lat)
+    border = false;
+  else 
+    border = true;
+
   if(name)
-    return isCertified(name, csv, plat, plong, delta);
+    return isCertified(name, csv, plat, plng, delta);
   else 
     return false;
+}
+
+/* Maidenhead Grid Locator in C
+   https://ve3nrt.wordpress.com/2010/09/21/maidenhead-grid-locator-in-c
+*/
+void positionToMaidenhead(char lat[],char lng[], char m[])
+{
+  const int pairs=4;
+  double latitude,longitude;
+  const double scaling[]={360.,360./18.,(360./18.)/10.,			\
+			  ((360./18.)/10.)/24.,(((360./18.)/10.)/24.)/10., \
+			  ((((360./18.)/10.)/24.)/10.)/24.,		\
+			  (((((360./18.)/10.)/24.)/10.)/24.)/10.};
+ int i;
+ int index;
+
+ sscanf(lat,"%lf",&latitude);
+ sscanf(lng,"%lf",&longitude);
+
+ for (i=0;i<pairs;i++)
+   {
+     index = (int)floor(fmod((180.0+longitude),	\
+			     scaling[i])/scaling[i+1]);
+     m[i*2] = (i&1) ? 0x30+index : (i&2) ? 0x61+index : 0x41+index;
+     index = (int)floor(fmod((90.0+latitude),	\
+			     (scaling[i]/2))/(scaling[i+1]/2));
+     m[i*2+1] = (i&1) ? 0x30+index : (i&2) ? 0x61+index : 0x41+index;
+   }
+ m[pairs*2]=0;
 }
 
 void outputTreeSub(std::ofstream & out, std::ofstream & tout, 
@@ -188,23 +230,27 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
   double plong,plat,clong,clat;
   char namebuff[128];
   char labuff[128],lobuff[128];
-  char hbuff[128],dbuff[128],csvbuff[256];
+  char hbuff[128],hbuff2[128],dbuff[128],csvbuff[256];
+  char maidenheadloc[128];
   bool flag,border;
 
   if (((data[b->extremum]-data[b->saddle]) > thresh) && 
       (data[b->extremum] > thresh)) {
-    flag =  tolatlong(namebuff,csvbuff,labuff,lobuff,b->extremum,data,border);
+    flag =  tolatlng(namebuff,csvbuff,labuff,lobuff,b->extremum,data,border);
     sprintf(hbuff,"%4.1f",data[b->extremum]);
+    sprintf(hbuff2,"%5.1f",data[b->extremum]*3.2808);
     sprintf(dbuff,"%4.1f",data[b->extremum]-data[b->saddle]);
-    if(!flag) strcpy(namebuff,
-		     ("U-"+region_name+"-"+to_string(unknownCount)).data());
+    if(!flag) {
+      positionToMaidenhead(labuff,lobuff,maidenheadloc);
+      sprintf(namebuff,"U-%s",maidenheadloc);
+    }
     if(!border) {
-      if (flag) tout << csvbuff << endl;
+      if (flag) tout << csvbuff;
       else {
 	tout << namebuff << ",";
 	tout << "Japan -,," << namebuff << ",";
-	tout << hbuff << "," << dbuff << "," <<lobuff << ","<< labuff << ",";
-	tout << lobuff << "," << labuff << "," << labuff << ",,,,,,," <<endl;
+	tout << hbuff << "," << hbuff2 << "," <<lobuff << ","<< labuff << ",";
+	tout << lobuff << "," << labuff << "," << labuff << ",,,,,,,";
       }
       //javascript
       out <<
@@ -227,13 +273,12 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 	"content:'" << namebuff << "(" << hbuff << "m) "<<
 	labuff << "," << lobuff << "["<< dbuff << "m]'\n});\n";
 
-      tolatlong(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
-      sprintf(hbuff,"%.1f",data[b->saddle]);
-      sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
+      tolatlng(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
+      sprintf(hbuff,"%4.1f",data[b->saddle]);
+      sprintf(hbuff2,"%5.1f",data[b->extremum]*3.2808);
+      sprintf(dbuff,"%4.1f",data[b->extremum]-data[b->saddle]);
       tout << "Saddle-" << namebuff << ",";
-      tout << "Japan -,,Saddle-" << namebuff << ",";
-      tout << hbuff <<  "," << dbuff << "," << lobuff << "," << labuff << ",";
-      tout << lobuff << "," << labuff << "," << labuff <<  ",,,,,,," <<endl;
+      tout << hbuff <<  "," << dbuff << "," << lobuff << "," << labuff << endl;
 
       //javascript
       out <<
@@ -253,12 +298,13 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
     if (((data[b->extremum]-data[b->saddle]) > (thresh/20) && 
     	 (data[b->extremum] > (thresh/20))))
       {  // missing summit
-	flag =  tolatlong(namebuff,csvbuff,labuff,lobuff,
+	flag =  tolatlng(namebuff,csvbuff,labuff,lobuff,
 			  b->extremum,data,border);
-	sprintf(hbuff,"%.1f",data[b->extremum]);
-	sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
+	sprintf(hbuff,"%4.1f",data[b->extremum]);
+	sprintf(hbuff2,"%5.1f",data[b->extremum]*3.2808);
+	sprintf(dbuff,"%4.1f",data[b->extremum]-data[b->saddle]);
 	if((!border)&&flag) {
-	  tout << "(Missing)"<< csvbuff << endl;
+	  tout << "(Missing)"<< csvbuff;
 	  //javascript
 	  out <<
 	    "data_peak.push({\n"
@@ -274,13 +320,12 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 	    "content:'(Missing)" << namebuff << "(" << hbuff << "m) "<<
 	    labuff << "," << lobuff << "[" << dbuff << "m]'\n});\n";
 
-	  tolatlong(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
-	  sprintf(hbuff,"%.1f",data[b->saddle]);
-	  sprintf(dbuff,"%.1f",data[b->extremum]-data[b->saddle]);
+	  tolatlng(NULL,csvbuff,labuff,lobuff,b->saddle,data,border);
+	  sprintf(hbuff,"%4.1f",data[b->saddle]);
+	  sprintf(hbuff2,"%5.1f",data[b->extremum]*3.2808);
+	  sprintf(dbuff,"%4.1f",data[b->extremum]-data[b->saddle]);
 	  tout << "Saddle-" << namebuff << ",";
-	  tout << "Japan -,,Saddle-" << namebuff << ",";
-	  tout << hbuff << "," << dbuff << "," << lobuff << "," << labuff << ",";
-	  tout << lobuff << "," << labuff << "," <<  labuff << ",,,,,,," <<endl;
+	  tout << hbuff << "," << dbuff << "," << lobuff << "," << labuff <<endl;
 
 	  //javascript
 	  out <<
@@ -304,10 +349,10 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float * data, int thresh ) {
 
   //Analyzed area
-  tout << uc_lat[0][0] << ", " 
-       <<    se_lat << ", " 
+  tout << uc_lat << ", " 
+       << se_lat << ", " 
        << se_lng << ", " 
-       << lc_long[0][0] << endl;
+       << lc_lng << endl;
 
   // javascipt main
   out << 
@@ -386,10 +431,23 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "   fillColor: '000000',\n"
     "   fillOpacity: 0,\n"
     "    bounds: {\n"
-    "       north:" << uc_lat[0][0] << ",\n" <<
+    "       north:" << uc_lat << ",\n" <<
     "       south:" << se_lat << ",\n" <<
     "       east:" << se_lng << ",\n" <<
-    "       west:" << lc_long[0][0] << "}" <<
+    "       west:" << lc_lng << "}" <<
+    "});\n"
+    "region_rect = new google.maps.Rectangle({\n"
+    "   map: map,\n"
+    "	strokeColor:\"#7f0000\",\n"
+    "   strokeOpacity:1.0,\n"
+    "	strokeWeight:4,\n"
+    "   fillColor: '000000',\n"
+    "   fillOpacity: 0,\n"
+    "    bounds: {\n"
+    "       north:" << org_lat << ",\n" <<
+    "       south:" << orgse_lat << ",\n" <<
+    "       east:" << orgse_lng << ",\n" <<
+    "       west:" << org_lng << "}" <<
     "});\n"
     "};\n"
     "}\n"
@@ -406,39 +464,72 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "google.maps.event.addDomListener(window, 'load', map_canvas);\n";
 }
 
-#define MAXWIDTH 16
+#define MAXWIDTH 256
 void loadMap (int start, int area_width, int area_height, unsigned int &width, unsigned int &height,float **pixels)
 {
-  std::ifstream ifs;
+  std::ifstream ifst[MAXWIDTH];
   std::ifstream ifsb[MAXWIDTH];
-  std::string str,pname,bname[MAXWIDTH];
+  std::string str,fname[MAXWIDTH];
+  int fpos,sub_sq;
 
-  pname = std::to_string(start) + ".pos";
-  ifs.open(pname);
-  if (ifs.fail()) {
-    cerr << "ERR: Couldn't open " << pname << endl;
+  if ((area_width+2)*(area_height+2)>MAXWIDTH) {
+    cerr << "ERR: Area size exceeds " << MAXWIDTH << endl;
     exit(EXIT_FAILURE);
+  }    
+  for(int h = -1; h < (area_height + 1); h++) {
+    for(int w = -1; w < (area_width + 1); w++) {
+      if ( w % 2 == 0) sub_sq = 0; else sub_sq = 1;
+      if ( h % 2 != 0) sub_sq += 10;
+
+      fpos = (w+1) + (h+1) * (area_width + 2);
+      /*
+      cout << "number=" << fpos << endl;
+      cout << "w h =" << w << "," << h << endl;
+      */
+      fname[fpos] = std::to_string(start-100 * int(floor(h/2.0)) + int(floor(w/2.0))) + "-" + std::to_string(sub_sq);
+      ifst[fpos].open(fname[fpos]+".pos");
+      ifsb[fpos].open(fname[fpos]+".bin",ios::in | ios::binary);
+      //      cout << "Reading region:" << fname[fpos] << endl;
+      
+      if(ifsb[fpos].fail()) {
+	//	cout << "Null region:" << fname[fpos] << endl;
+	ifsb[fpos] == NULL;
+	ifst[fpos] == NULL;
+      }
+      
+      if( h == 0 && w == 0 ){
+	getline(ifst[fpos],str);
+	cout << "North West region "<< fname[fpos] << ":" << str <<endl;
+	getline(ifst[fpos],str);
+	sscanf(str.data(),"%d %d",&xml_width,&xml_height);
+	getline(ifst[fpos],str);
+	sscanf(str.data(),"%d %d",&mesh_width,&mesh_height);
+	getline(ifst[fpos],str);
+	sscanf(str.data(),"%lf %lf",&lc_lat,&lc_lng);
+	getline(ifst[fpos],str);
+	sscanf(str.data(),"%lf %lf",&uc_lat,&uc_lng);
+
+	/* South East Coordinate */
+	se_lat = uc_lat - 
+	  (uc_lat- lc_lat)*(double)xml_height*area_height;
+	se_lng = lc_lng + 
+	  (uc_lng - lc_lng)*(double)xml_width*area_width;
+	/* Origin Coordinate */
+	org_lat = uc_lat + (uc_lat- lc_lat)*xml_height;
+	org_lng = lc_lng - (uc_lng- lc_lng)*xml_width;
+	orgse_lat = org_lat - 
+	  (uc_lat- lc_lat)*(xml_height*2 + (double)xml_height*area_height);
+	orgse_lng = org_lng +
+	  (uc_lng - lc_lng)*(xml_width*2 + (double)xml_width*area_width);
+	
+	width = xml_width * mesh_width * (area_width + 2);
+	height = xml_height * mesh_height * (area_height + 2);
+
+	cout << xml_width << "," << mesh_width << "," << area_width << endl;
+	cout << xml_height << "," << mesh_height << "," << area_height << endl;
+      }
+    }
   }
-  getline(ifs,str);
-  cout << "North West region = " << str <<endl;
-  getline(ifs,str);
-  sscanf(str.data(),"%d %d",&xml_width,&xml_height);
-  getline(ifs,str);
-  sscanf(str.data(),"%d %d",&mesh_width,&mesh_height);
-  getline(ifs,str);
-  sscanf(str.data(),"%lf %lf",&lc_lat[0][0],&lc_long[0][0]);
-  getline(ifs,str);
-  sscanf(str.data(),"%lf %lf",&uc_lat[0][0],&uc_long[0][0]);
-  se_lat = uc_lat[0][0] - 
-    (uc_lat[0][0]- lc_lat[0][0])*(double)xml_height*area_height;
-  se_lng = lc_long[0][0] + 
-    (uc_long[0][0]- lc_long[0][0])*(double)xml_width*area_width;
-
-  width = xml_width * mesh_width * area_width;
-  height = xml_height * mesh_height * area_height;
-
-  cout << xml_width << "," << mesh_width << "," << area_width << endl;
-  cout << xml_height << "," << mesh_height << "," << area_height << endl;
 
   int numPixels = width * height;
   cout << "Reading " << width << " * " << height << 
@@ -454,37 +545,36 @@ void loadMap (int start, int area_width, int area_height, unsigned int &width, u
   float b;
   unsigned int count = 0;
 
-  for(int h = 0; h < area_height ; h++ ) {
-    for(int w = 0; w < area_width ; w++ ) {
-      bname[w] = std::to_string(start - 100*h + w) + ".bin";
-      cout << "Reading ..." << bname[w] << endl;
-      ifsb[w].open(bname[w], ios::in | ios::binary);
-      if (ifsb[w].fail()) {
-	cerr << "ERR: Couldn't open " + bname[w] << endl;
-	exit(EXIT_FAILURE);
-      }
-    }
+  for(int h = -1; h < (area_height + 1) ; h++ ) {
     for(int y = 0; y < mesh_height*xml_height; y++)  {
-      for(int w = 0; w < area_width; w++) {
+      for(int w = -1; w < (area_width + 1); w++) {
+	fpos = (w+1) + (h+1) * (area_width + 2);
 	for(int i = 0; i < mesh_width*xml_width; i++) {
-	  ifsb[w].read((char *)&b,sizeof(float));
-	  if(!ifsb[w].fail()) {
-	    if (b<0) b =0.0;
-	    (*pixels)[count++] = b;
+	  if(ifsb[fpos]!=NULL) {
+	    ifsb[fpos].read((char *)&b,sizeof(float));
+	    if(!ifsb[fpos].fail()) {
+	      if (b<0) b =0.0;
+	      (*pixels)[count++] = b;
+	      minVal = std::min(b,minVal);
+	      maxVal = std::max(b,maxVal);
+	    } else {
+	      cerr << "ERR: Couldn't read " << fname[fpos] << endl;
+	      exit(EXIT_FAILURE);
+	    }
+	  } else {
+	    b =0.0;
+	    (*pixels)[count++] = 0.0;
 	    minVal = std::min(b,minVal);
 	    maxVal = std::max(b,maxVal);
-	  } else {
-	    cerr << "ERR: Couldn't read " << bname[w] << endl;
-	    exit(EXIT_FAILURE);
 	  }
 	}
       }
     }
-    for(int w = 0; w < area_width ; w++ ) 
-      ifsb[w].close();
   }
+  cout << "Wrote " << count << " meshes." <<endl;
   cout << "Min elevation is " << minVal << " and Max elevation is " << maxVal << endl;
 }
+
 
 int main( int argc, char ** argv ) 
 {

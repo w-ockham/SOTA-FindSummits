@@ -14,7 +14,7 @@ EXE = findsummits
 INCLUDE_DIRS = -Ilibtourtre/include
 
 #compiler flags
-COMPILE_FLAGS = -g -std=c++11
+COMPILE_FLAGS = -O4 -g -std=c++11
 
 #lib directories
 LIB_DIRS = -L./libtourtre 
