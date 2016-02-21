@@ -22,7 +22,7 @@ using std::endl;
 
 double uc_lat,uc_lng;
 double lc_lat,lc_lng;
-double se_lat,se_lng;
+double nw_lat,nw_lng,se_lat,se_lng;
 double org_lat,org_lng;
 double orgse_lat,orgse_lng;
 
@@ -168,21 +168,23 @@ bool tolatlng(char *name,char *csv,char *latitude, char *longitude,
 	      unsigned int loc,float *data,bool &border,double delta=0.001) {
   int x,y;
   double plng,plat;
-
+  double dlng,dlat;
   x = loc % width;
   y = loc / width;
   //  cout << loc << "," << x << "," << y << endl;
 
+  dlng = uc_lng - lc_lng;
+  dlat = uc_lat - lc_lat;
 
   plng = org_lng +  
-    ((uc_lng - lc_lng)*((double)x /(double)mesh_width));
+    (dlng*((double)x /(double)mesh_width));
   plat =  org_lat -
-    ((uc_lat - lc_lat)*((double)y/(double)mesh_height));
+    (dlat*((double)y/(double)mesh_height));
 
   sprintf(longitude,"%3.7f",plng);
   sprintf(latitude,"%2.8f",plat);
 
-  if(plng >= lc_lng && plng <= se_lng && plat >= se_lat && plat <= uc_lat)
+  if(plng >= nw_lng && plng <= se_lng && plat >= se_lat && plat <= nw_lat)
     border = false;
   else 
     border = true;
@@ -349,10 +351,11 @@ void outputTreeSub(std::ofstream & out, std::ofstream & tout,
 void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float * data, int thresh ) {
 
   //Analyzed area
-  tout << uc_lat << ", " 
+  tout << region_name << ", "
+       << nw_lat << ", " 
        << se_lat << ", " 
        << se_lng << ", " 
-       << lc_lng << endl;
+       << nw_lng << endl;
 
   // javascipt main
   out << 
@@ -431,10 +434,10 @@ void outputTree( std::ofstream & out, std::ofstream & tout, ctBranch * b, float 
     "   fillColor: '000000',\n"
     "   fillOpacity: 0,\n"
     "    bounds: {\n"
-    "       north:" << uc_lat << ",\n" <<
+    "       north:" << nw_lat << ",\n" <<
     "       south:" << se_lat << ",\n" <<
     "       east:" << se_lng << ",\n" <<
-    "       west:" << lc_lng << "}" <<
+    "       west:" << nw_lng << "}" <<
     "});\n"
     "region_rect = new google.maps.Rectangle({\n"
     "   map: map,\n"
@@ -509,11 +512,6 @@ void loadMap (int start, int area_width, int area_height, unsigned int &width, u
 	getline(ifst[fpos],str);
 	sscanf(str.data(),"%lf %lf",&uc_lat,&uc_lng);
 
-	/* South East Coordinate */
-	se_lat = uc_lat - 
-	  (uc_lat- lc_lat)*(double)xml_height*area_height;
-	se_lng = lc_lng + 
-	  (uc_lng - lc_lng)*(double)xml_width*area_width;
 	/* Origin Coordinate */
 	org_lat = uc_lat + (uc_lat- lc_lat)*xml_height;
 	org_lng = lc_lng - (uc_lng- lc_lng)*xml_width;
@@ -521,7 +519,15 @@ void loadMap (int start, int area_width, int area_height, unsigned int &width, u
 	  (uc_lat- lc_lat)*(xml_height*2 + (double)xml_height*area_height);
 	orgse_lng = org_lng +
 	  (uc_lng - lc_lng)*(xml_width*2 + (double)xml_width*area_width);
-	
+	/* South East Coordinate */
+	se_lat = uc_lat - 
+	  (uc_lat- lc_lat)*(double)xml_height*area_height - (uc_lat- lc_lat)*(double)xml_height/2;
+	se_lng = lc_lng + 
+	  (uc_lng - lc_lng)*(double)xml_width*area_width + (uc_lng - lc_lng)*(double)xml_width/2;
+	/* North West Coordinate */
+	nw_lat = uc_lat +(uc_lat- lc_lat)*(double)xml_height/2;
+	nw_lng = lc_lng - (uc_lng - lc_lng)*(double)xml_width/2; 
+
 	width = xml_width * mesh_width * (area_width + 2);
 	height = xml_height * mesh_height * (area_height + 2);
 
@@ -660,7 +666,7 @@ int main( int argc, char ** argv )
     
     //output tree
     std::ofstream jout(filename + ".js",std::ios::out);
-    std::ofstream tout(filename + ".csv",std::ios::out);
+    std::ofstream tout(filename + ".txt",std::ios::out);
     if (jout) {
       outputTree( jout, tout , root, data, thresh);
     } else {

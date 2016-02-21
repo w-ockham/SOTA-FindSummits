@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import csv
 import fnmatch
 import json
@@ -27,6 +28,7 @@ pref_codes = {
 "Hiroshima":("JA/HS-","Japan - Honshu"),
 "Hiyama":("JA8/HY-","Japan - Hokaido"),
 "Hyogo":("JA/HG-","Japan - Honshu"),
+"Hyōgo":("JA/HG-","Japan - Honshu"),
 "Ibaraki":("JA/IB-","Japan - Honshu"),
 "Iburi":("JA8/IR-","Japan - Hokaido"),
 "Ishikari":("JA8/IS-","Japan - Hokaido"),
@@ -37,6 +39,7 @@ pref_codes = {
 "Kamikawa":("JA8/KK-","Japan - Hokaido"),
 "Kanagawa":("JA/KN-","Japan - Honshu"),
 "Kochi":("JA5/KC-","Japan - Shikoku"),
+"Kōchi":("JA5/KC-","Japan - Shikoku"),
 "Kumamoto":("JA6/KM-","Japan - Kyushu_Okinawa"),
 "Kushiro":("JA8/KR-","Japan - Hokaido"),
 "Kyoto":("JA/KT-","Japan - Honshu"),
@@ -49,6 +52,7 @@ pref_codes = {
 "Nemuro":("JA8/NM-","Japan - Hokaido"),
 "Niigata":("JA/NI-","Japan - Honshu"),
 "Oita":("JA6/OT-","Japan - Kyushu_Okinawa"),
+"Ōita":("JA6/OT-","Japan - Kyushu_Okinawa"),
 "Okayama":("JA/OY-","Japan - Honshu"),
 "Okhotsk":("JA8/OH-","Japan - Hokaido"),
 "Okinawa":("JA6/ON-","Japan - Kyushu_Okinawa"),
@@ -96,18 +100,37 @@ def get_r_geocode(latitude,longitude):
             return ""
 
 def search_r_geocode(conn,cur,name,latitude,longitude):
-    print name
     cur.execute("select * from geocode where name = ?",(name,))
     r = cur.fetchone()
     if r:
-        (n,p,region,pref,addr,lat,lng) = r
-        print r
-        return (n,p,region,pref,addr,lat,lng)
+        (n,prefix,region,pref,addr,lat,lng) = r
+        original = True
+        for p in pref_codes:
+            if re.findall(str(p)+"-ken",addr):
+                pref = p
+                (prefix,region) = pref_codes[p]
+                original = False
+                break
+            elif re.findall(str(p)+"-gun",addr):
+                pref = p
+                (prefix,region) = pref_codes[p]
+                original = False
+                break
+        if original:
+            region  = "Japan - "
+            prefix  = ""
+            pref = ""
+        return (n,prefix,region,pref,addr,lat,lng)
     else:
         addr = get_r_geocode(latitude,longitude)
         original = True
         for p in pref_codes:
             if re.findall(str(p)+"-ken",addr):
+                pref = p
+                (prefix,region) = pref_codes[p]
+                original = False
+                break
+            elif re.findall(str(p)+"-gun",addr):
                 pref = p
                 (prefix,region) = pref_codes[p]
                 original = False
