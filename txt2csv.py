@@ -43,6 +43,7 @@ pref_codes = {
 "Kumamoto":("JA6/KM-","Japan - Kyushu_Okinawa"),
 "Kushiro":("JA8/KR-","Japan - Hokaido"),
 "Kyoto":("JA/KT-","Japan - Honshu"),
+"Kyōto":("JA/KT-","Japan - Honshu"),
 "Mie":("JA/ME-","Japan - Honshu"),
 "Miyagi":("JA/MG-","Japan - Honshu"),
 "Miyazaki":("JA6/MZ-","Japan - Kyushu_Okinawa"),
@@ -57,6 +58,7 @@ pref_codes = {
 "Okhotsk":("JA8/OH-","Japan - Hokaido"),
 "Okinawa":("JA6/ON-","Japan - Kyushu_Okinawa"),
 "Osaka":("JA/OS-","Japan - Honshu"),
+"Ōsaka":("JA/OS-","Japan - Honshu"),
 "Oshima":("JA8/OM-","Japan - Hokaido"),
 "Rumoi":("JA8/RM-","Japan - Hokaido"),
 "Saga":("JA6/SG-","Japan - Kyushu_Okinawa"),
@@ -116,10 +118,24 @@ def search_r_geocode(conn,cur,name,latitude,longitude):
                 (prefix,region) = pref_codes[p]
                 original = False
                 break
+            elif re.findall(str(p)+" Prefecture",addr):
+                pref = p
+                (prefix,region) = pref_codes[p]
+                original = False
+                break
+            elif re.findall(str(p)+"-fu",addr):
+                pref = p
+                (prefix,region) = pref_codes[p]
+                original = False
+                break
         if original:
             region  = "Japan - "
             prefix  = ""
             pref = ""
+#        else:
+#            t = (n,prefix,region,pref,addr,lat,lng)
+#            cur.execute('insert or replace into geocode values (?,?,?,?,?,?,?)',t)
+#            conn.commit()
         return (n,prefix,region,pref,addr,lat,lng)
     else:
         addr = get_r_geocode(latitude,longitude)
